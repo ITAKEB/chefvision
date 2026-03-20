@@ -1,29 +1,40 @@
+"""Ingest a PDF file through the recipe chunking pipeline."""
+
 import sys
 from pathlib import Path
-from services.ingestion import ingest_pdf
 
+# Ensure the project root is on sys.path so backend imports resolve.
 BASE_DIR = Path(__file__).resolve().parents[1]
-sys.path.append(str(BASE_DIR / "backend"))
-RAW_DATA_DIR = BASE_DIR / "data" / "raw"
+sys.path.insert(0, str(BASE_DIR))
+
+from backend.config import settings
+from backend.model.schema import ChunkingConfig
+from backend.services.ingestion import ingest_pdf
 
 
-def main(): 
-    """
-        Recorrer todos los PDFs, extrae el texto 
-        y lo guarda en chromaDB
-    """
-    pdfs = list(RAW_DATA_DIR.glob("*.pdf"))
-    # all_docs = []
+def main() -> None:
+    if len(sys.argv) < 2:
+        print("Usage: python scripts/ingest_pdf.py <pdf_path>")
+        sys.exit(1)
 
-    for pdf_path in pdfs:
-        base_name = pdf_path.stem
-        # pdf_chunk = ingest_pdf(pdf_path)
-        print(f"Procesando {pdf_path.name}...")
-        
+    pdf_path = Path(sys.argv[1])
+    if not pdf_path.exists():
+        print(f"Error: file not found: {pdf_path}")
+        sys.exit(1)
+
+    config = ChunkingConfig(
+        chunk_size=settings.CHUNK_SIZE,
+        overlap=settings.CHUNK_OVERLAP,
+        recipe_threshold=settings.RECIPE_THRESHOLD,
+    )
+
+    print(f"Processing {pdf_path.name}...")
+    result = ingest_pdf(pdf_path, config)
+    print(f"Status: {result.status.value}")
+    print(f"Chunks processed: {result.chunks_processed}")
+    if result.error_message:
+        print(f"Error: {result.error_message}")
+
+
 if __name__ == "__main__":
     main()
-
-
-
-
-

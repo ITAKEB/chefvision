@@ -1,0 +1,30 @@
+version: "3.9"
+
+services:
+  backend:
+    build: ./backend
+    container_name: chefvision-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - chefvision_data:/app/data
+    environment:
+      - PYTHONUNBUFFERED=1
+      - YOLO_MODEL_REPO=your-hf-repo/yolo-groceries
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: chefvision-frontend
+    ports:
+      - "8501:8501"
+    environment:
+      - BACKEND_URL=http://backend:8000
+      - STREAMLIT_SERVER_HEADLESS=true
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  chefvision_data:
+    driver: local

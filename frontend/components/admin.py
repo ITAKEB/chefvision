@@ -1,46 +1,9 @@
 import streamlit as st
-import os
-import json
-from datetime import datetime
+import requests
+import api_client
 
 # ── Parameters ────────────────────────────────────────────────────────────────
 MAX_PDF_FILES = 10          # ← Change this to restrict the number of PDFs
-UPLOAD_DIR    = "data/uploads"
-
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-META_FILE = os.path.join(UPLOAD_DIR, "metadata.json")
-
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
-def load_meta() -> list:
-    if os.path.exists(META_FILE):
-        with open(META_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return []
-
-
-def save_meta(records: list):
-    with open(META_FILE, "w", encoding="utf-8") as f:
-        json.dump(records, f, ensure_ascii=False, indent=2)
-
-
-def save_pdf(uploaded_file) -> dict:
-    path = os.path.join(UPLOAD_DIR, uploaded_file.name)
-    with open(path, "wb") as f:
-        f.write(uploaded_file.getbuffer())
-    return {
-        "name":     uploaded_file.name,
-        "size_kb":  round(uploaded_file.size / 1024, 1),
-        "uploaded": datetime.now().strftime("%d/%m/%Y %H:%M"),
-        "path":     path,
-    }
-
-
-def delete_pdf(filename: str, records: list) -> list:
-    path = os.path.join(UPLOAD_DIR, filename)
-    if os.path.exists(path):
-        os.remove(path)
-    return [r for r in records if r["name"] != filename]
 
 
 # ── Topbar ────────────────────────────────────────────────────────────────────
@@ -70,7 +33,7 @@ def _topbar():
         </div>
         """, unsafe_allow_html=True)
 
-    st.markdown('<hr style="margin:0 0 2rem; border:none; border-top:1px solid var(--mist);">', 
+    st.markdown('<hr style="margin:0 0 2rem; border:none; border-top:1px solid var(--mist);">',
                 unsafe_allow_html=True)
 
 
@@ -78,9 +41,15 @@ def _topbar():
 def show_admin():
     _topbar()
 
-    records = load_meta()
-    count   = len(records)
-    slots   = MAX_PDF_FILES - count
+    # Fetch file list from backend API
+    try:
+        records = api_client.list_files()
+    except (requests.HTTPError, requests.ConnectionError) as e:
+        st.error(f"Error al conectar con el servidor: {e}")
+        records = []
+
+    count = len(records)
+    slots = MAX_PDF_FILES - count
 
     # ── Page title
     st.markdown("""
@@ -160,7 +129,7 @@ def show_admin():
 
             if over_limit:
                 st.markdown(f"""
-                <div class="cv-warn">⚠️ Solo se pueden agregar {slots} más. 
+                <div class="cv-warn">⚠️ Solo se pueden agregar {slots} más.
                 Algunos archivos fueron ignorados.</div>
                 """, unsafe_allow_html=True)
 
@@ -181,7 +150,6 @@ def show_admin():
                     </div>
                     """, unsafe_allow_html=True)
 
-                # Enable upload button only when files are selected (first file triggers it)
                 btn_disabled = len(new_files) == 0
                 st.markdown('<div style="height:0.75rem"></div>', unsafe_allow_html=True)
 
@@ -193,13 +161,24 @@ def show_admin():
                             use_container_width=True
                         ):
                             saved = 0
+                            errors = []
                             for f in new_files:
-                                rec = save_pdf(f)
-                                records.append(rec)
-                                saved += 1
-                            save_meta(records)
-                            st.success(f"✅ {saved} documento(s) cargados exitosamente.")
-                            st.rerun()
+                                try:
+                                    api_client.upload_pdf(f)
+                                    saved += 1
+                                except requests.HTTPError as e:
+                                    if e.response is not None and e.response.status_code == 409:
+                                        errors.append(f"{f.name}: ya está embebido")
+                                    else:
+                                        errors.append(f"{f.name}: {e}")
+                                except requests.ConnectionError:
+                                    errors.append(f"{f.name}: no se pudo conectar al servidor")
+                            if saved:
+                                st.success(f"✅ {saved} documento(s) cargados exitosamente.")
+                            for err in errors:
+                                st.error(err)
+                            if saved:
+                                st.rerun()
             else:
                 st.markdown("""
                 <div class="cv-info">
@@ -216,7 +195,7 @@ def show_admin():
         """, unsafe_allow_html=True)
 
         for idx, rec in enumerate(records):
-            col_icon, col_info, col_del = st.columns([0.5, 6, 1.5])
+            col_icon, col_info, col_status, col_del = st.columns([0.5, 5, 1.5, 1.5])
             with col_icon:
                 st.markdown('<div style="font-size:2rem; padding-top:0.3rem">📕</div>',
                             unsafe_allow_html=True)
@@ -229,19 +208,40 @@ def show_admin():
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
+            with col_status:
+                if rec.get("embedded", False):
+                    st.markdown("""
+                    <div style="padding-top:0.5rem;">
+                        <span style="background:#6b8f71; color:white; padding:0.2rem 0.6rem;
+                                     border-radius:1rem; font-size:0.75rem; font-weight:600;">
+                            ✓ Embebido
+                        </span>
+                    </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown("""
+                    <div style="padding-top:0.5rem;">
+                        <span style="background:#d4a574; color:white; padding:0.2rem 0.6rem;
+                                     border-radius:1rem; font-size:0.75rem; font-weight:600;">
+                            ○ Sin embeber
+                        </span>
+                    </div>
+                    """, unsafe_allow_html=True)
             with col_del:
                 if st.button("🗑 Eliminar", key=f"del_{idx}", use_container_width=True):
-                    records = delete_pdf(rec["name"], records)
-                    save_meta(records)
-                    st.rerun()
+                    try:
+                        api_client.delete_file(rec["name"])
+                        st.rerun()
+                    except (requests.HTTPError, requests.ConnectionError) as e:
+                        st.error(f"Error al eliminar {rec['name']}: {e}")
 
-            st.markdown('<hr style="border:none; border-top:1px solid var(--mist); margin:0.4rem 0;">', 
+            st.markdown('<hr style="border:none; border-top:1px solid var(--mist); margin:0.4rem 0;">',
                         unsafe_allow_html=True)
     else:
         st.markdown("""
         <div class="cv-card" style="text-align:center; padding:3rem;">
             <div style="font-size:3rem; margin-bottom:1rem;">📭</div>
-            <div style="font-family:'Playfair Display',serif; font-size:1.1rem; 
+            <div style="font-family:'Playfair Display',serif; font-size:1.1rem;
                         color:var(--espresso); opacity:0.7;">
                 Aún no hay documentos cargados
             </div>

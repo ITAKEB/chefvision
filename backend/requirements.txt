@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+pypdf
+chromadb
+pydantic-settings
+python-multipart
+Pillow
+huggingface-hub
+ultralytics

@@ -23,6 +23,9 @@ COPY . .
 # Create upload directory and ensure permissions
 RUN mkdir -p data/uploads && chmod -R 777 data/
 
+# Backend API URL (overridden by docker-compose)
+ENV BACKEND_URL=http://localhost:8000
+
 # Streamlit config
 ENV STREAMLIT_SERVER_PORT=8501
 ENV STREAMLIT_SERVER_HEADLESS=true
