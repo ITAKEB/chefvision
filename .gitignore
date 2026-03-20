@@ -1,1 +1,36 @@
-/data/
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+.venv/
+
+# Environment variables
+.env
+
+# Data & ChromaDB
+data/
+
+# Hypothesis
+.hypothesis/
+
+# Pytest
+.pytest_cache/
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.kiro/
+.cursor/
+
+# pyenv
+.python-version

@@ -19,8 +19,11 @@ class Setting(BaseSettings):
   TOP_K: int = 20
   MIN_RELEVANCE_SCORE: float = 0.4
 
+  CHUNK_SIZE: int = 1000
+  CHUNK_OVERLAP: int = 200
+  RECIPE_THRESHOLD: int = 5
 
   class Config:
     env_file = ".env"
 
-settings = Settings()
+settings = Setting()
