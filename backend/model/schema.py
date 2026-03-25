@@ -72,3 +72,33 @@ class IngestionResult:
     status: EmbeddingStatus
     chunks_processed: int
     error_message: str | None = None
+
+
+@dataclass
+class DetectedItem:
+    """A single ingredient detected by the YOLO model."""
+
+    name: str
+    confidence: float
+    bbox: tuple[float, float, float, float]
+
+
+@dataclass
+class TranslatedIngredient:
+    """An ingredient with both English and Spanish names."""
+
+    name_en: str
+    name_es: str
+    translated: bool
+
+
+@dataclass
+class SearchResult:
+    """A recipe chunk returned from semantic search."""
+
+    text: str
+    source_filename: str
+    page_number: int
+    chunk_index: int
+    relevance_score: float
+

@@ -1,28 +1,12 @@
 import streamlit as st
-import base64
-import json
-import os
 from datetime import datetime
-
-UPLOAD_DIR = "data/uploads"
-META_FILE  = os.path.join(UPLOAD_DIR, "metadata.json")
+import api_client
 
 MEAL_OPTIONS = {
     "Desayuno": {"emoji": "🌅", "hint": "Energía para empezar el día"},
     "Almuerzo": {"emoji": "☀️", "hint": "El plato fuerte del día"},
     "Cena":     {"emoji": "🌙", "hint": "Ligero y reconfortante"},
 }
-
-
-def load_recipes_count() -> int:
-    if os.path.exists(META_FILE):
-        with open(META_FILE, "r", encoding="utf-8") as f:
-            return len(json.load(f))
-    return 0
-
-
-def image_to_b64(image_file) -> str:
-    return base64.b64encode(image_file.read()).decode()
 
 
 # ── Topbar ────────────────────────────────────────────────────────────────────
@@ -50,90 +34,13 @@ def _topbar():
         </div>
         """, unsafe_allow_html=True)
 
-    st.markdown('<hr style="margin:0 0 2rem; border:none; border-top:1px solid var(--mist);">', 
+    st.markdown('<hr style="margin:0 0 2rem; border:none; border-top:1px solid var(--mist);">',
                 unsafe_allow_html=True)
-
-
-# ── Recipe display ────────────────────────────────────────────────────────────
-def _show_recipe(meal: str, images_count: int):
-    """Placeholder recipe output — replace with real LLM call later."""
-    meal_emoji = MEAL_OPTIONS[meal]["emoji"]
-
-    sample_ingredients = [
-        "2 huevos frescos", "1 taza de arroz cocido",
-        "½ cebolla picada", "2 dientes de ajo",
-        "Sal, pimienta y aceite de oliva al gusto",
-        "Hierbas frescas (perejil, cilantro)",
-    ]
-    sample_steps = [
-        "Calienta una sartén a fuego medio con un chorrito de aceite de oliva.",
-        "Sofríe la cebolla y el ajo hasta que estén transparentes (aprox. 3 min).",
-        "Añade los demás ingredientes identificados en tus fotos y mezcla bien.",
-        "Cocina a fuego medio-alto por 5–7 minutos revolviendo ocasionalmente.",
-        "Ajusta la sazón con sal y pimienta. ¡Sirve caliente y disfruta!",
-    ]
-
-    st.markdown(f"""
-    <div class="recipe-card">
-        <div class="recipe-header">
-            <div style="font-size:0.8rem; text-transform:uppercase; letter-spacing:0.12em;
-                        opacity:0.65; margin-bottom:0.5rem; font-weight:600;">
-                {meal_emoji} Receta para {meal}
-            </div>
-            <div class="recipe-title">Combinación Creativa del Chef</div>
-            <div style="opacity:0.65; font-size:0.9rem; margin-top:0.5rem;">
-                Basada en {images_count} foto(s) de tus ingredientes
-            </div>
-        </div>
-        <div class="recipe-body">
-            <h4 style="font-family:'DM Sans',sans-serif; font-size:0.8rem; text-transform:uppercase;
-                       letter-spacing:0.1em; color:var(--amber); margin:0 0 0.75rem;">
-                🧺 Ingredientes identificados
-            </h4>
-    """, unsafe_allow_html=True)
-
-    for ing in sample_ingredients:
-        st.markdown(f"""
-        <div style="display:flex; align-items:center; gap:0.5rem; padding:0.3rem 0;
-                    border-bottom:1px solid var(--mist); font-size:0.9rem;">
-            <span style="color:var(--amber);">·</span> {ing}
-        </div>
-        """, unsafe_allow_html=True)
-
-    st.markdown("""
-        <h4 style="font-family:'DM Sans',sans-serif; font-size:0.8rem; text-transform:uppercase;
-                   letter-spacing:0.1em; color:var(--sage); margin:1.5rem 0 0.75rem;">
-            👨‍🍳 Preparación paso a paso
-        </h4>
-    """, unsafe_allow_html=True)
-
-    for i, step in enumerate(sample_steps, 1):
-        st.markdown(f"""
-        <div style="display:flex; gap:0.9rem; margin-bottom:0.9rem; align-items:flex-start;">
-            <div style="min-width:28px; height:28px; background:var(--cocoa); color:var(--cream);
-                        border-radius:50%; display:flex; align-items:center; justify-content:center;
-                        font-size:0.78rem; font-weight:700; flex-shrink:0;">
-                {i}
-            </div>
-            <div style="font-size:0.9rem; padding-top:0.3rem; line-height:1.5;">{step}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    st.markdown("""
-        <div class="cv-info" style="margin-top:1rem;">
-            💡 <strong>Consejo del chef:</strong> Esta receta es una sugerencia basada en los
-            ingredientes detectados. Puedes adaptar las porciones y tiempos a tu gusto.
-        </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
 
 
 # ── Main user view ────────────────────────────────────────────────────────────
 def show_user():
     _topbar()
-
-    recipes_available = load_recipes_count()
 
     # ── Greeting
     hour = datetime.now().hour
@@ -149,22 +56,6 @@ def show_user():
         </p>
     </div>
     """, unsafe_allow_html=True)
-
-    # ── Knowledge base status
-    if recipes_available == 0:
-        st.markdown("""
-        <div class="cv-warn" style="margin-bottom:1.5rem;">
-            📚 El administrador aún no ha cargado recetas de referencia. Las sugerencias serán
-            genéricas por el momento.
-        </div>
-        """, unsafe_allow_html=True)
-    else:
-        st.markdown(f"""
-        <div class="cv-info" style="margin-bottom:1.5rem;">
-            📚 Asistente entrenado con <strong>{recipes_available}</strong>
-            libro(s) de recetas · Listo para inspirarte
-        </div>
-        """, unsafe_allow_html=True)
 
     # ── STEP 1: Meal type selector
     st.markdown("""
@@ -184,8 +75,6 @@ def show_user():
     for col, (meal, info) in zip([m1, m2, m3], MEAL_OPTIONS.items()):
         with col:
             is_active = st.session_state.selected_meal == meal
-            border_style = "2px solid var(--amber)" if is_active else "2px solid var(--mist)"
-            bg_style = "rgba(212,132,58,0.08)" if is_active else "var(--warm-white)"
 
             if st.button(
                 f"{info['emoji']}\n{meal}",
@@ -208,7 +97,7 @@ def show_user():
     <div style="margin-top:1rem; padding:0.6rem 1rem; background:rgba(212,132,58,0.08);
                 border-radius:var(--radius-sm); font-size:0.88rem; font-weight:600;
                 color:var(--amber);">
-        ✓ Seleccionado: {MEAL_OPTIONS[st.session_state.selected_meal]['emoji']} 
+        ✓ Seleccionado: {MEAL_OPTIONS[st.session_state.selected_meal]['emoji']}
         {st.session_state.selected_meal}
     </div>
     """, unsafe_allow_html=True)
@@ -235,8 +124,8 @@ def show_user():
     if uploaded_images:
         # Show image previews in a grid
         st.markdown(f"""
-        <div style="font-size:0.82rem; color:var(--espresso); opacity:0.6; 
-                    margin:0.5rem 0; font-weight:600; text-transform:uppercase; 
+        <div style="font-size:0.82rem; color:var(--espresso); opacity:0.6;
+                    margin:0.5rem 0; font-weight:600; text-transform:uppercase;
                     letter-spacing:0.06em;">
             {len(uploaded_images)} imagen(es) cargada(s)
         </div>
@@ -251,7 +140,7 @@ def show_user():
 
         if len(uploaded_images) > 4:
             st.markdown(f"""
-            <div style="font-size:0.82rem; color:var(--espresso); opacity:0.55; 
+            <div style="font-size:0.82rem; color:var(--espresso); opacity:0.55;
                         text-align:center; margin-top:0.3rem;">
                 +{len(uploaded_images)-4} imagen(es) adicional(es)
             </div>
@@ -293,7 +182,7 @@ def show_user():
     with col_clear:
         if st.button("🔄 Reiniciar", use_container_width=True):
             for k in list(st.session_state.keys()):
-                if k.startswith("food_") or k == "recipe_generated":
+                if k.startswith("food_") or k in ("recipe_results", "detected_ingredients", "search_result", "generated_recipe"):
                     del st.session_state[k]
             st.rerun()
 
@@ -305,26 +194,58 @@ def show_user():
         </div>
         """, unsafe_allow_html=True)
 
-    # ── Recipe output
+    # ── Run detection and search when button is clicked
     if generate_clicked and uploaded_images:
-        with st.spinner("Analizando ingredientes y creando tu receta…"):
-            import time
-            time.sleep(1.5)  # Simulate processing — replace with real API call
+        all_ingredients = []
 
-        st.markdown('<div style="height:1rem"></div>', unsafe_allow_html=True)
-        st.markdown('<h3 style="font-size:1.1rem; margin:0 0 1rem;">🍽️ Tu receta personalizada</h3>',
-                    unsafe_allow_html=True)
-        _show_recipe(st.session_state.selected_meal, len(uploaded_images))
+        with st.spinner("Analizando ingredientes en tus fotos…"):
+            for img in uploaded_images:
+                img.seek(0)
+                try:
+                    result = api_client.detect_ingredients(img)
+                except Exception as e:
+                    st.error(f"Error al analizar la imagen {img.name}: {e}")
+                    continue
 
-        # Tags
-        st.markdown("""
-        <div style="margin-top:1rem; display:flex; flex-wrap:wrap; gap:0.4rem;">
-            <span class="cv-chip cv-chip-amber">⏱ 20–30 min</span>
-            <span class="cv-chip cv-chip-sage">🥗 Saludable</span>
-            <span class="cv-chip cv-chip-terra">🌶 Moderado</span>
-            <span class="cv-chip">👥 2 porciones</span>
-        </div>
-        """, unsafe_allow_html=True)
+                if result.get("error_message"):
+                    st.error(f"Error en {img.name}: {result['error_message']}")
+                    continue
+
+                for ingredient in result.get("ingredients", []):
+                    all_ingredients.append(ingredient)
+
+        # Store results in session_state so they survive reruns
+        # Deduplicate ingredients by name, keeping highest confidence
+        seen: dict[str, dict] = {}
+        for ing in all_ingredients:
+            name = ing.get("name_en", "").lower()
+            if name not in seen or ing.get("confidence", 0) > seen[name].get("confidence", 0):
+                seen[name] = ing
+        all_ingredients = list(seen.values())
+
+        st.session_state.detected_ingredients = all_ingredients
+
+        if all_ingredients:
+            ingredient_names_en = [ing.get("name_en", "") for ing in all_ingredients if ing.get("name_en")]
+            ingredient_names_es = [ing.get("name_es", "") for ing in all_ingredients if ing.get("name_es")]
+
+            with st.spinner("🧑‍🍳 Generando receta personalizada con IA…"):
+                try:
+                    gen_result = api_client.generate_recipe(
+                        ingredients_en=ingredient_names_en,
+                        ingredients_es=ingredient_names_es,
+                        meal_type=st.session_state.selected_meal,
+                    )
+                except Exception as e:
+                    st.error(f"Error al generar receta: {e}")
+                    gen_result = None
+
+            st.session_state.generated_recipe = gen_result
+        else:
+            st.session_state.generated_recipe = None
+
+    # ── Display results from session_state (persists across reruns)
+    _display_results()
 
     # ── Logout
     st.markdown('<div style="height:2.5rem"></div>', unsafe_allow_html=True)
@@ -335,3 +256,68 @@ def show_user():
                 st.session_state[k] = None if k == "role" else (
                     False if k == "authenticated" else "")
             st.rerun()
+
+
+def _display_results():
+    """Render detected ingredients and generated recipe from session_state."""
+    all_ingredients = st.session_state.get("detected_ingredients")
+
+    if all_ingredients is None:
+        return
+
+    if not all_ingredients:
+        st.warning("🔍 No se detectaron ingredientes. Intenta con una foto diferente donde los ingredientes sean más visibles y estén bien iluminados.")
+        return
+
+    # ── Detected ingredients
+    st.divider()
+    st.subheader("🧺 Ingredientes detectados")
+
+    cols_per_row = 3
+    for i in range(0, len(all_ingredients), cols_per_row):
+        row_items = all_ingredients[i:i + cols_per_row]
+        cols = st.columns(cols_per_row)
+        for j, ing in enumerate(row_items):
+            name_en = ing.get("name_en", "")
+            name_es = ing.get("name_es", "")
+            confidence = ing.get("confidence", 0)
+            pct = int(confidence * 100)
+            label = name_es if name_es != name_en else name_en
+            with cols[j]:
+                st.metric(label=label, value=f"{pct}%", help=f"{name_en} → {name_es}")
+
+    # ── Generated recipe
+    gen_result = st.session_state.get("generated_recipe")
+
+    if gen_result and gen_result.get("recipe"):
+        st.divider()
+        st.subheader("🧑‍🍳 Receta sugerida por IA")
+
+        with st.container(border=True):
+            st.markdown(gen_result["recipe"])
+
+        # Source references
+        source_chunks = gen_result.get("source_chunks", [])
+        if source_chunks:
+            with st.expander("📚 Recetas de referencia utilizadas"):
+                for chunk in source_chunks:
+                    source = chunk.get("source_filename", "")
+                    page = chunk.get("page_number", "")
+                    score = chunk.get("relevance_score", 0)
+                    st.caption(f"📄 {source} · pág. {page} · Relevancia: {int(score * 100)}%")
+
+        # Debug: raw chunks
+        debug_chunks = gen_result.get("debug_chunks")
+        if debug_chunks:
+            with st.expander("🐛 Debug: Raw chunks from ChromaDB"):
+                for i, chunk in enumerate(debug_chunks):
+                    st.text_area(
+                        f"Chunk {i + 1}",
+                        value=chunk,
+                        height=400,
+                        disabled=True,
+                        key=f"debug_chunk_{i}",
+                    )
+
+    elif gen_result:
+        st.info("🔍 No se encontraron recetas de referencia. Intenta con otros ingredientes o pide al administrador que cargue más libros de recetas.")

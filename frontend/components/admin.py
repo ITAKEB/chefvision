@@ -156,15 +156,38 @@ def show_admin():
                 with st.container():
                     col_btn, col_space = st.columns([1, 3])
                     with col_btn:
+                        # Disable button if upload is in progress
+                        is_uploading = st.session_state.get("_uploading", False)
                         if not btn_disabled and st.button(
                             f"⬆ Cargar {len(new_files)} documento(s)",
-                            use_container_width=True
+                            use_container_width=True,
+                            disabled=is_uploading,
                         ):
+                            st.session_state._uploading = True
                             saved = 0
                             errors = []
-                            for f in new_files:
+                            total = len(new_files)
+
+                            progress_bar = st.progress(0, text="Preparando carga…")
+                            status_text = st.empty()
+
+                            for i, f in enumerate(new_files):
+                                pct = int((i / total) * 100)
+                                progress_bar.progress(pct, text=f"📤 Subiendo y embebiendo {f.name}… ({i+1}/{total})")
+                                status_text.markdown(f"""
+                                <div style="font-size:0.82rem; color:var(--espresso); opacity:0.7;">
+                                    ⏳ Procesando <strong>{f.name}</strong> — extrayendo texto, chunking, generando embeddings…
+                                </div>
+                                """, unsafe_allow_html=True)
+
                                 try:
-                                    api_client.upload_pdf(f)
+                                    result = api_client.upload_pdf(f)
+                                    chunks = result.get("chunks_processed", 0)
+                                    status_text.markdown(f"""
+                                    <div style="font-size:0.82rem; color:var(--sage); font-weight:600;">
+                                        ✅ {f.name} — {chunks} fragmentos embebidos
+                                    </div>
+                                    """, unsafe_allow_html=True)
                                     saved += 1
                                 except requests.HTTPError as e:
                                     if e.response is not None and e.response.status_code == 409:
@@ -173,11 +196,18 @@ def show_admin():
                                         errors.append(f"{f.name}: {e}")
                                 except requests.ConnectionError:
                                     errors.append(f"{f.name}: no se pudo conectar al servidor")
+
+                            progress_bar.progress(100, text="✅ Carga completada")
+                            status_text.empty()
+                            st.session_state._uploading = False
+
                             if saved:
-                                st.success(f"✅ {saved} documento(s) cargados exitosamente.")
+                                st.success(f"✅ {saved} documento(s) cargados y embebidos exitosamente.")
                             for err in errors:
                                 st.error(err)
                             if saved:
+                                import time
+                                time.sleep(1.5)
                                 st.rerun()
             else:
                 st.markdown("""

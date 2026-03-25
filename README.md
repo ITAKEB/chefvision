@@ -288,6 +288,6 @@ This project is developed by Dialcha, Itakeb, Darien-o.
 ---
 
 <p align="center">
-  <strong>© 2025 ChefVision — All Rights Reserved</strong><br>
+  <strong>© 2026 ChefVision — All Rights Reserved</strong><br>
   <em>Proprietary software. Unauthorized use is prohibited.</em>
 </p>

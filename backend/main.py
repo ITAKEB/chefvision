@@ -18,3 +18,9 @@ app.include_router(router, prefix="/api")
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/api/config/debug")
+def debug_config():
+    from backend.config import settings
+    return {"debug_mode": settings.DEBUG_MODE}

@@ -296,17 +296,55 @@ def chunk_text(
 # Recipe block detection
 # ---------------------------------------------------------------------------
 
-COOKING_VERBS = ["mix", "cook", "bake", "boil", "fry", "stir", "heat", "add"]
+COOKING_VERBS = [
+    # Spanish
+    "mezclar", "cocinar", "hornear", "hervir", "freír", "revolver",
+    "calentar", "añadir", "agregar", "picar", "cortar", "pelar",
+    "batir", "amasar", "sazonar", "servir", "preparar", "cocer",
+    "saltear", "dorar", "rallar", "licuar", "colar", "escurrir",
+    "incorporar", "verter", "untar", "espolvorear", "rehogar",
+    # English fallback
+    "mix", "cook", "bake", "boil", "fry", "stir", "heat", "add",
+]
 
-_QUANTITY_PATTERN = re.compile(r"\b\d+\s?(g|ml|cup|tbsp|tsp)?\b")
+# Recipe section headers (Spanish)
+_RECIPE_SECTION_WORDS = [
+    "ingredientes", "preparación", "modo de hacerlo", "elaboración",
+    "procedimiento", "instrucciones", "para el relleno", "para la salsa",
+    "para la masa", "modo de preparación",
+]
+
+# Quantity pattern: number followed by a cooking unit (strict)
+_QUANTITY_PATTERN = re.compile(
+    r"\b\d+\s*"
+    r"(?:g|kg|ml|l|oz|lb|cups?|tbsp|tsp"
+    r"|gramos?|kilos?|litros?|mililitros?"
+    r"|cucharadas?|cucharaditas?|tazas?|libras?"
+    r"|unidades?|pizca|dientes?|ramitas?|hojas?)\b",
+    re.IGNORECASE,
+)
+
+# Negative signals: table of contents, indices, page listings
+_TOC_PATTERN = re.compile(
+    r"(?:\.{3,}|…)\s*\d+",  # "........... 123" or "… 123"
+)
 
 
 def score_recipe_block(text: str) -> int:
-    """Return a recipe relevance score based on cooking verb and quantity pattern matches."""
+    """Return a recipe relevance score based on cooking verb and quantity pattern matches.
+
+    Penalizes table-of-contents and index-like content.
+    """
     lower = text.lower()
     verb_score = sum(1 for verb in COOKING_VERBS if verb in lower)
     quantity_score = len(_QUANTITY_PATTERN.findall(lower))
-    return verb_score + quantity_score
+    section_score = sum(2 for word in _RECIPE_SECTION_WORDS if word in lower)
+
+    # Penalize TOC/index pages
+    toc_matches = len(_TOC_PATTERN.findall(text))
+    toc_penalty = min(toc_matches * 2, 10)
+
+    return max(0, verb_score + quantity_score + section_score - toc_penalty)
 
 
 def is_recipe_block(text: str, threshold: int = 5) -> bool:

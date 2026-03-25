@@ -91,19 +91,23 @@ def ingest_pdf(pdf_path: Path, config: ChunkingConfig) -> IngestionResult:
         result.error_message = "No text content found in PDF."
         return result
 
-    # Step 3: Chunk each page and filter for recipe blocks.
-    recipe_chunks = []
-    for page in pages:
-        page_chunks = chunk_text(
-            text=page.text,
-            source_filename=filename,
-            page_number=page.page_number,
-            chunk_size=config.chunk_size,
-            overlap=config.overlap,
-        )
-        for chunk in page_chunks:
-            if is_recipe_block(chunk.text, config.recipe_threshold):
-                recipe_chunks.append(chunk)
+    # Step 3: Concatenate all pages into one text, then chunk.
+    # This prevents recipes spanning multiple pages from being split.
+    full_text = "\n\n".join(page.text for page in pages)
+
+    all_chunks = chunk_text(
+        text=full_text,
+        source_filename=filename,
+        page_number=1,  # page_number is approximate for concatenated text
+        chunk_size=config.chunk_size,
+        overlap=config.overlap,
+    )
+
+    # Filter for recipe blocks only.
+    recipe_chunks = [
+        chunk for chunk in all_chunks
+        if is_recipe_block(chunk.text, config.recipe_threshold)
+    ]
 
     if not recipe_chunks:
         result.status = EmbeddingStatus.NOT_EMBEDDED

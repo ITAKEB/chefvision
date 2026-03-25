@@ -1,10 +1,15 @@
-"""Vector store service for managing ChromaDB embeddings."""
+"""Vector store service for managing ChromaDB embeddings.
+
+Uses Ollama's nomic-embed-text model for multilingual (Spanish) embeddings.
+"""
 
 from __future__ import annotations
 
 import logging
 
 import chromadb
+from chromadb import EmbeddingFunction, Documents, Embeddings
+import requests
 
 from backend.config import settings
 from backend.model.schema import Chunk, EmbeddingResult
@@ -15,10 +20,39 @@ logger = logging.getLogger(__name__)
 COLLECTION_NAME = "recipe_chunks"
 
 
+class OllamaEmbeddingFunction(EmbeddingFunction):
+    """Custom embedding function that calls Ollama's embedding API."""
+
+    def __init__(self, model: str = "nomic-embed-text", base_url: str = "http://localhost:11434"):
+        self._model = model
+        self._base_url = base_url.rstrip("/")
+
+    def __call__(self, input: Documents) -> Embeddings:
+        embeddings: Embeddings = []
+        for text in input:
+            response = requests.post(
+                f"{self._base_url}/api/embed",
+                json={"model": self._model, "input": text},
+            )
+            response.raise_for_status()
+            data = response.json()
+            embeddings.append(data["embeddings"][0])
+        return embeddings
+
+
+_embedding_fn = OllamaEmbeddingFunction(
+    model=settings.EMBEDDING_MODEL,
+    base_url=settings.LLM_BASE_URL.replace("/v1", ""),
+)
+
+
 def _get_collection() -> chromadb.Collection:
-    """Return the recipe_chunks ChromaDB collection (persistent client)."""
+    """Return the recipe_chunks ChromaDB collection with Ollama embeddings."""
     client = chromadb.PersistentClient(path=str(settings.CHROMA_DIR))
-    return client.get_or_create_collection(name=COLLECTION_NAME)
+    return client.get_or_create_collection(
+        name=COLLECTION_NAME,
+        embedding_function=_embedding_fn,
+    )
 
 
 def embed_chunks(chunks: list[Chunk], filename: str) -> EmbeddingResult:

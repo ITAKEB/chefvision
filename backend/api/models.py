@@ -59,3 +59,16 @@ class RecipeResult(BaseModel):
 class RecipeSearchResponse(BaseModel):
     results: list[RecipeResult]
     query_terms: list[str]
+
+
+class GenerateRecipeRequest(BaseModel):
+    ingredients_en: list[str]
+    ingredients_es: list[str]
+    meal_type: str = "Almuerzo"
+    top_k: int = 5
+
+
+class GenerateRecipeResponse(BaseModel):
+    recipe: str
+    source_chunks: list[RecipeResult]
+    debug_chunks: list[str] | None = None
