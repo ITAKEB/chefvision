@@ -1,5 +1,6 @@
 import streamlit as st
 from datetime import datetime
+from PIL import Image, ImageDraw, ImageFont
 import api_client
 
 MEAL_OPTIONS = {
@@ -7,6 +8,62 @@ MEAL_OPTIONS = {
     "Almuerzo": {"emoji": "☀️", "hint": "El plato fuerte del día"},
     "Cena":     {"emoji": "🌙", "hint": "Ligero y reconfortante"},
 }
+
+# Colors for bounding boxes (cycling through for multiple detections)
+_BOX_COLORS = [
+    (76, 175, 80),    # green
+    (255, 152, 0),    # orange
+    (33, 150, 243),   # blue
+    (244, 67, 54),    # red
+    (156, 39, 176),   # purple
+    (0, 188, 212),    # cyan
+    (255, 235, 59),   # yellow
+    (121, 85, 72),    # brown
+]
+
+
+def _draw_detections(image: Image.Image, ingredients: list[dict]) -> Image.Image:
+    """Draw bounding boxes and labels on a copy of the image."""
+    img = image.copy().convert("RGB")
+    draw = ImageDraw.Draw(img)
+
+    # Scale font size relative to image
+    font_size = max(14, min(img.width, img.height) // 30)
+    try:
+        font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
+    except (OSError, IOError):
+        try:
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+        except (OSError, IOError):
+            font = ImageFont.load_default()
+
+    line_width = max(2, min(img.width, img.height) // 200)
+
+    for i, ing in enumerate(ingredients):
+        bbox = ing.get("bbox")
+        if not bbox or len(bbox) != 4:
+            continue
+
+        x1, y1, x2, y2 = [int(v) for v in bbox]
+        color = _BOX_COLORS[i % len(_BOX_COLORS)]
+        name = ing.get("name_es", ing.get("name_en", "?"))
+        pct = int(ing.get("confidence", 0) * 100)
+        label = f"{name} {pct}%"
+
+        # Draw box
+        for offset in range(line_width):
+            draw.rectangle([x1 - offset, y1 - offset, x2 + offset, y2 + offset], outline=color)
+
+        # Draw label background
+        text_bbox = draw.textbbox((0, 0), label, font=font)
+        tw = text_bbox[2] - text_bbox[0]
+        th = text_bbox[3] - text_bbox[1]
+        pad = 4
+        label_y = max(0, y1 - th - pad * 2)
+        draw.rectangle([x1, label_y, x1 + tw + pad * 2, label_y + th + pad * 2], fill=color)
+        draw.text((x1 + pad, label_y + pad), label, fill=(255, 255, 255), font=font)
+
+    return img
 
 
 # ── Topbar ────────────────────────────────────────────────────────────────────
@@ -182,7 +239,7 @@ def show_user():
     with col_clear:
         if st.button("🔄 Reiniciar", use_container_width=True):
             for k in list(st.session_state.keys()):
-                if k.startswith("food_") or k in ("recipe_results", "detected_ingredients", "search_result", "generated_recipe"):
+                if k.startswith("food_") or k in ("recipe_results", "detected_ingredients", "search_result", "generated_recipe", "annotated_images"):
                     del st.session_state[k]
             st.rerun()
 
@@ -197,6 +254,11 @@ def show_user():
     # ── Run detection and search when button is clicked
     if generate_clicked and uploaded_images:
         all_ingredients = []
+        annotated_images = []
+
+        # Check debug flags from backend
+        debug_flags = api_client.get_debug_flags()
+        show_bbox = debug_flags.get("debug_bbox", False)
 
         with st.spinner("Analizando ingredientes en tus fotos…"):
             for img in uploaded_images:
@@ -211,8 +273,19 @@ def show_user():
                     st.error(f"Error en {img.name}: {result['error_message']}")
                     continue
 
-                for ingredient in result.get("ingredients", []):
+                img_ingredients = result.get("ingredients", [])
+                for ingredient in img_ingredients:
                     all_ingredients.append(ingredient)
+
+                # Draw bounding boxes on this image (only if debug enabled)
+                if show_bbox and img_ingredients:
+                    img.seek(0)
+                    pil_img = Image.open(img)
+                    annotated = _draw_detections(pil_img, img_ingredients)
+                    annotated_images.append({"image": annotated, "name": img.name})
+
+        # Store annotated images
+        st.session_state.annotated_images = annotated_images
 
         # Store results in session_state so they survive reruns
         # Deduplicate ingredients by name, keeping highest confidence
@@ -272,6 +345,14 @@ def _display_results():
     # ── Detected ingredients
     st.divider()
     st.subheader("🧺 Ingredientes detectados")
+
+    # Show annotated images with bounding boxes
+    annotated_images = st.session_state.get("annotated_images", [])
+    if annotated_images:
+        ann_cols = st.columns(min(len(annotated_images), 3))
+        for i, ann in enumerate(annotated_images):
+            with ann_cols[i % len(ann_cols)]:
+                st.image(ann["image"], caption=f"📸 {ann['name']}", use_container_width=True)
 
     cols_per_row = 3
     for i in range(0, len(all_ingredients), cols_per_row):

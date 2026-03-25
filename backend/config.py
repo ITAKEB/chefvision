@@ -34,8 +34,9 @@ class Setting(BaseSettings):
   # Translation settings
   INGREDIENT_DICT_PATH: Path | None = None
 
-  # Debug mode — shows raw chunks in the UI
-  DEBUG_MODE: bool = True
+  # Debug mode flags
+  DEBUG_BBOX: bool = True     # Show YOLO bounding boxes on images
+  DEBUG_CHUNKS: bool = True   # Show raw chunks from ChromaDB in UI
 
   class Config:
     env_file = ".env"

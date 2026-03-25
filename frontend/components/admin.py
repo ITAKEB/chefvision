@@ -281,6 +281,44 @@ def show_admin():
         </div>
         """, unsafe_allow_html=True)
 
+    # ── Debug settings
+    st.markdown("""
+    <h3 style="font-size:1.1rem; margin:1.5rem 0 0.75rem;">🐛 Configuración de Debug</h3>
+    """, unsafe_allow_html=True)
+
+    with st.container(border=True):
+        # Fetch current flags from backend
+        if "debug_flags" not in st.session_state:
+            st.session_state.debug_flags = api_client.get_debug_flags()
+
+        flags = st.session_state.debug_flags
+
+        col_bbox, col_chunks = st.columns(2)
+        with col_bbox:
+            new_bbox = st.toggle(
+                "📦 Bounding boxes en imágenes",
+                value=flags.get("debug_bbox", False),
+                help="Muestra las cajas de detección YOLO sobre las fotos de ingredientes",
+                key="toggle_bbox",
+            )
+        with col_chunks:
+            new_chunks = st.toggle(
+                "📄 Chunks de ChromaDB",
+                value=flags.get("debug_chunks", False),
+                help="Muestra los fragmentos de texto crudos usados para generar la receta",
+                key="toggle_chunks",
+            )
+
+        # Save if changed
+        changed = (
+            new_bbox != flags.get("debug_bbox", False)
+            or new_chunks != flags.get("debug_chunks", False)
+        )
+        if changed:
+            updated = api_client.set_debug_flags(debug_bbox=new_bbox, debug_chunks=new_chunks)
+            st.session_state.debug_flags = updated
+            st.rerun()
+
     # ── Logout
     st.markdown('<div style="height:2rem"></div>', unsafe_allow_html=True)
     col_lx, _ = st.columns([1, 4])

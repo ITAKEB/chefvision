@@ -41,7 +41,7 @@ _FALLBACK_DICTIONARY: dict[str, str] = {
     "almond": "almendra", "walnut": "nuez", "peanut": "cacahuate",
     "bean": "frijol", "lentil": "lenteja", "chickpea": "garbanzo",
     "pea": "guisante", "olive": "aceituna", "radish": "rábano",
-    "beet": "remolacha", "sweet potato": "camote", "squash": "calabaza",
+    "beet": "remolacha", "sweet potato": "camote", "squash": "calabaza","bell_pepper":"pimenton"
 }
 
 
