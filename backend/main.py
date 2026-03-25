@@ -23,4 +23,20 @@ def health():
 @app.get("/api/config/debug")
 def debug_config():
     from backend.config import settings
-    return {"debug_mode": settings.DEBUG_MODE}
+    return {
+        "debug_bbox": settings.DEBUG_BBOX,
+        "debug_chunks": settings.DEBUG_CHUNKS,
+    }
+
+
+@app.post("/api/config/debug")
+def set_debug_config(body: dict):
+    from backend.config import settings
+    if "debug_bbox" in body:
+        settings.DEBUG_BBOX = bool(body["debug_bbox"])
+    if "debug_chunks" in body:
+        settings.DEBUG_CHUNKS = bool(body["debug_chunks"])
+    return {
+        "debug_bbox": settings.DEBUG_BBOX,
+        "debug_chunks": settings.DEBUG_CHUNKS,
+    }

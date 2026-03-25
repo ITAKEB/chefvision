@@ -36,6 +36,7 @@ class DetectedIngredient(BaseModel):
     name_en: str
     name_es: str
     confidence: float
+    bbox: list[float] | None = None
 
 
 class DetectionResponse(BaseModel):

@@ -20,6 +20,31 @@ def is_debug_mode() -> bool:
         return False
 
 
+def get_debug_flags() -> dict:
+    """Get current debug flag values from backend."""
+    try:
+        r = requests.get(f"{BACKEND_URL}/api/config/debug", timeout=3)
+        r.raise_for_status()
+        return r.json()
+    except Exception:
+        return {"debug_bbox": False, "debug_chunks": False}
+
+
+def set_debug_flags(debug_bbox: bool | None = None, debug_chunks: bool | None = None) -> dict:
+    """Update debug flags on the backend."""
+    payload = {}
+    if debug_bbox is not None:
+        payload["debug_bbox"] = debug_bbox
+    if debug_chunks is not None:
+        payload["debug_chunks"] = debug_chunks
+    try:
+        r = requests.post(f"{BACKEND_URL}/api/config/debug", json=payload, timeout=3)
+        r.raise_for_status()
+        return r.json()
+    except Exception:
+        return {"debug_bbox": False, "debug_chunks": False}
+
+
 def upload_pdf(file) -> dict:
     """Upload a PDF file to the backend via POST /api/files/upload.
 

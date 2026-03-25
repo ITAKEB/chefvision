@@ -192,6 +192,7 @@ async def detect_ingredients(file: UploadFile) -> DetectionResponse:
                 name_en=item.name,
                 name_es=name_es,
                 confidence=item.confidence,
+                bbox=list(item.bbox),
             )
         )
 
@@ -256,7 +257,7 @@ async def generate_recipe_endpoint(request: GenerateRecipeRequest) -> GenerateRe
     ]
 
     # Include raw chunks in debug mode
-    debug_chunks = chunk_texts[:5] if settings.DEBUG_MODE else None
+    debug_chunks = chunk_texts[:5] if settings.DEBUG_CHUNKS else None
 
     return GenerateRecipeResponse(
         recipe=recipe_text,
