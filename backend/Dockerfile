@@ -11,8 +11,26 @@ COPY . ./backend/
 
 RUN mkdir -p data/uploads data/chroma
 
-# Install curl for the health check
-RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+# Install curl and OpenCV / X11 dependencies required by ultralytics/cv2
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    libxcb1 \
+    libxcb-icccm4 \
+    libxcb-image0 \
+    libxcb-keysyms1 \
+    libxcb-randr0 \
+    libxcb-render-util0 \
+    libxcb-shape0 \
+    libxcb-xfixes0 \
+    libxcb-xinerama0 \
+    libxcb-xkb1 \
+    libxkbcommon-x11-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgl1 \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
 
 EXPOSE 8000
 
